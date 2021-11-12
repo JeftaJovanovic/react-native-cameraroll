@@ -617,16 +617,16 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
 
         // Sort function
         if (orderBy == "TAKEN") {
-            String[] sortColumns = {MediaStore.Files.FileColumns.DATE_TAKEN, MediaStore.Files.FileColumns.DATE_MODIFIED};
+            String[] sortColumns = {Images.Media.DATE_TAKEN, Images.Media.DATE_MODIFIED};
             bundle.putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, sortColumns);
         } else {
-            String[] sortColumns = {MediaStore.Files.FileColumns.DATE_ADDED, MediaStore.Files.FileColumns.DATE_MODIFIED};
+            String[] sortColumns = {Images.Media.DATE_ADDED, Images.Media.DATE_MODIFIED};
             bundle.putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, sortColumns);
         }
 
-        int orderDirection = ContentResolver.QUERY_SORT_DIRECTION_ASCENDING;
+        int orderDirection = ContentResolver.QUERY_SORT_DIRECTION_DESCENDING;
         if (orderAscending) {
-            orderDirection = ContentResolver.QUERY_SORT_DIRECTION_DESCENDING;
+            orderDirection = ContentResolver.QUERY_SORT_DIRECTION_ASCENDING;
         }
         bundle.putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, orderDirection);
 
