@@ -632,5 +632,7 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
 
         bundle.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, whereCondition);
         bundle.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs);
+
+        return bundle;
     }
 }
