@@ -17,6 +17,7 @@ import android.media.MediaScannerConnection;
 import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -313,6 +314,7 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
                     selectionArgs.add(mAfter);
                 }
             }
+
             if (!TextUtils.isEmpty(mGroupName)) {
                 selection.append(" AND " + SELECTION_BUCKET);
                 selectionArgs.add(mGroupName);
@@ -352,25 +354,42 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
             WritableMap response = new WritableNativeMap();
             ContentResolver resolver = mContext.getContentResolver();
 
-
-            String sortQuery = Images.Media.DATE_TAKEN + " DESC, " + Images.Media.DATE_MODIFIED + " DESC LIMIT "
-                    + (mFirst + 1);
-
+            String sortQueryDateTaken = Images.Media.DATE_TAKEN + " DESC, " + Images.Media.DATE_MODIFIED + " DESC";
             // We sort on date_added when date_taken appears to be invalid else on date_taken
             // and finally on date_moddified. `date_added` is multiplied with 1000 in that case
             // since it is measured in second as opposed to `date_taken`.
             String sortQueryDateAdded = "(CASE WHEN " + Images.Media.DATE_TAKEN + "<=0 THEN " + Images.Media.DATE_ADDED
                     + "*1000 ELSE " + Images.Media.DATE_TAKEN + " END) DESC, "
-                    + Images.Media.DATE_MODIFIED + " DESC LIMIT " + (mFirst + 1);
+                    + Images.Media.DATE_MODIFIED + " DESC";
+            String sortQuery = mUseDateAddedQuery ? sortQueryDateAdded : sortQueryDateTaken;
+            String[] selectionArgsStringArray = selectionArgs.toArray(new String[selectionArgs.size()]);
 
+            Cursor media = null;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                Bundle selectionBundle = new Bundle();
+                selectionBundle.putInt(ContentResolver.QUERY_ARG_LIMIT, mFirst + 1);
+                selectionBundle.putInt(ContentResolver.QUERY_ARG_OFFSET, 0);
+                selectionBundle.putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, sortQuery);
+                selectionBundle.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection.toString());
+                selectionBundle.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgsStringArray);
 
-            Bundle selectionBundle = createSelectionBundle(selection.toString(), selectionArgs.toArray(new String[selectionArgs.size()]), mUseDateAddedQuery ? "ADDED" : "TAKEN", false, mFirst + 1, 0);
-            try {
-                Cursor media = resolver.query(
+                media = resolver.query(
+                    MediaStore.Files.getContentUri("external"),
+                    PROJECTION,
+                    selectionBundle,
+                    null
+                );
+            } else {
+                media = resolver.query(
                         MediaStore.Files.getContentUri("external"),
                         PROJECTION,
-                        selectionBundle, null);
+                        selection.toString(),
+                        selectionArgsStringArray,
+                        sortQuery + " LIMIT " + (mFirst + 1)
+                );
+            }
 
+            try {
                 if (media == null) {
                     mPromise.reject(ERROR_UNABLE_TO_LOAD, "Could not get media");
                 } else {
@@ -600,39 +619,5 @@ public class CameraRollModule extends ReactContextBaseJavaModule {
             location.putDouble("latitude", latitude);
             node.putMap("location", location);
         }
-    }
-
-    private static Bundle createSelectionBundle(
-            String whereCondition,
-            String[] selectionArgs,
-            String orderBy,
-            Boolean orderAscending,
-            int limit,
-            int offset
-    ) {
-        Bundle bundle = new Bundle();
-        bundle.putInt(ContentResolver.QUERY_ARG_LIMIT, limit);
-        bundle.putInt(ContentResolver.QUERY_ARG_OFFSET, offset);
-
-
-        // Sort function
-        if (orderBy == "TAKEN") {
-            String[] sortColumns = {Images.Media.DATE_TAKEN, Images.Media.DATE_MODIFIED};
-            bundle.putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, sortColumns);
-        } else {
-            String[] sortColumns = {Images.Media.DATE_ADDED, Images.Media.DATE_MODIFIED};
-            bundle.putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, sortColumns);
-        }
-
-        int orderDirection = ContentResolver.QUERY_SORT_DIRECTION_DESCENDING;
-        if (orderAscending) {
-            orderDirection = ContentResolver.QUERY_SORT_DIRECTION_ASCENDING;
-        }
-        bundle.putInt(ContentResolver.QUERY_ARG_SORT_DIRECTION, orderDirection);
-
-        bundle.putString(ContentResolver.QUERY_ARG_SQL_SELECTION, whereCondition);
-        bundle.putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs);
-
-        return bundle;
     }
 }
